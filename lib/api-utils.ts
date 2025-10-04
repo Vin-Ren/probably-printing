@@ -5,15 +5,12 @@ const CORS_ALLOW_ORIGINS = (process.env.CORS_ALLOW_ORIGIN || "*")
   .map((d) => d.trim())
   .filter(Boolean);
 
-const JUDGELS_BASE_API_URL = process.env.JUDGELS_BASE_API_URL!;
-const WHITELISTED_JUDGELS_USERS = (process.env.WHITELISTED_JUDGELS_USERS || "").split(",").map(user => user.trim()).filter(Boolean);
-
-export function createCORSHeaders(requestOrigin: string | null): HeadersInit {
+export function createCORSHeaders(requestOrigin: string | null, extraHeaders: string[] = []): HeadersInit {
   const allowedOrigin = getAllowedOrigin(requestOrigin);
   
   const headers: HeadersInit = {
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Secret-Key, x-judgels-bearer-token, x-judgels-user-info",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Secret-Key" + (extraHeaders.length ? `, ${extraHeaders.join(", ")}` : ""),
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
@@ -24,6 +21,11 @@ export function createCORSHeaders(requestOrigin: string | null): HeadersInit {
   }
 
   return headers;
+}
+
+export function createCORSHeadersFromRequest(req: NextRequest, extraHeaders: string[] = []): HeadersInit {
+  const requestOrigin = req.headers.get("origin");
+  return createCORSHeaders(requestOrigin, extraHeaders);
 }
 
 function getAllowedOrigin(requestOrigin: string | null): string | null {
@@ -45,10 +47,10 @@ function getAllowedOrigin(requestOrigin: string | null): string | null {
   return null;
 }
 
-export function handleCORS(req: NextRequest) {
+export function handleCORS(req: NextRequest, extraHeaders: string[] = []): NextResponse {
   const requestOrigin = req.headers.get("origin");
-  const corsHeaders = createCORSHeaders(requestOrigin);
-  
+  const corsHeaders = createCORSHeaders(requestOrigin, extraHeaders);
+
   return new NextResponse(null, {
     status: 204,
     headers: corsHeaders,
@@ -72,30 +74,6 @@ export function validateSecretKey(
 
   return null; // Valid secret key
 }
-
-export async function verifyJudgelsUser(token: string, userInfo: { jid: string; username: string }): Promise<boolean | object> {
-  try {
-    // Call Judgels API to verify token and get user info
-    const response = await fetch(`${JUDGELS_BASE_API_URL}/users/me`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (response.ok) {
-      const verifiedUser = await response.json();
-      if (verifiedUser.username !== userInfo.username || verifiedUser.jid !== userInfo.jid) {
-        console.log("User info mismatch:", verifiedUser, userInfo);
-        return false;
-      }
-      return (!WHITELISTED_JUDGELS_USERS.length || WHITELISTED_JUDGELS_USERS.includes(verifiedUser.username));
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-
 
 export function createErrorResponse(
   error: string,

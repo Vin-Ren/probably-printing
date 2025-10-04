@@ -1,4 +1,5 @@
 "use client";
+import { SUBMIT_SOURCES } from "@/lib/consts";
 import { useState, useEffect, useRef } from "react";
 
 interface SubmissionEvent {
@@ -80,7 +81,7 @@ export default function MonitorPage() {
             source: data.source || 'unknown',
           };
           
-          setSubmissions(prev => [newSubmission, ...prev.slice(0, 49)]); // Keep last 50 submissions
+          setSubmissions(prev => [newSubmission, ...prev]);
           
           // Play notification sound
           if (audioRef.current) {
@@ -286,15 +287,9 @@ export default function MonitorPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          submission.source === 'api/submit' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : submission.source === 'api/submit-via-judgels'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
+                          SUBMIT_SOURCES[submission.source || 'unknown'].badgeClasses || 'bg-gray-100 text-gray-800'
                         }`}>
-                          {submission.source === 'api/submit' ? 'Direct' : 
-                           submission.source === 'api/submit-via-judgels' ? 'Judgels' : 
-                           submission.source || 'Unknown'}
+                          {SUBMIT_SOURCES[submission.source || 'unknown'].name || 'Unknown'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
