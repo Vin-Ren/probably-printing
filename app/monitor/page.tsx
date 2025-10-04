@@ -18,6 +18,8 @@ export default function MonitorPage() {
   const [submissions, setSubmissions] = useState<SubmissionEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [resubmittingIds, setResubmittingIds] = useState<Record<string, boolean>>({});
   const eventSourceRef = useRef<EventSource | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
@@ -34,6 +36,12 @@ export default function MonitorPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!statusMessage) return;
+    const timer = setTimeout(() => setStatusMessage(""), 4000);
+    return () => clearTimeout(timer);
+  }, [statusMessage]);
 
   const authenticate = () => {
     if (isDevelopment || secretKey.trim()) {
@@ -113,6 +121,62 @@ export default function MonitorPage() {
         setError("Failed to connect to monitor");
       }
     };
+  };
+
+  const resubmitSubmission = async (submission: SubmissionEvent) => {
+    if (!submission.fileUrl) {
+      setError("No file URL available to resubmit this submission.");
+      return;
+    }
+
+    const submissionId = submission.id;
+    setResubmittingIds((prev) => ({ ...prev, [submissionId]: true }));
+    setError("");
+    setStatusMessage("");
+
+    try {
+      const response = await fetch("/api/resubmit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          secretKey,
+          submissionId,
+          filename: submission.filename,
+          teamname: submission.teamname,
+          fileUrl: submission.fileUrl,
+          source: "monitor",
+        }),
+      });
+
+      let data: unknown = null;
+      try {
+        data = await response.json();
+  } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        const errorMessage =
+          typeof data === "object" && data !== null && "error" in data
+            ? String((data as { error?: string }).error ?? "Failed to resubmit submission")
+            : "Failed to resubmit submission";
+        setError(errorMessage);
+        return;
+      }
+
+      setStatusMessage(`Resubmitted ${submission.filename} for ${submission.teamname}`);
+    } catch (err) {
+      console.error("Resubmit error:", err);
+      setError("Failed to resubmit submission");
+    } finally {
+      setResubmittingIds((prev) => {
+        const updated = { ...prev };
+        delete updated[submissionId];
+        return updated;
+      });
+    }
   };
 
   const disconnect = () => {
@@ -224,6 +288,18 @@ export default function MonitorPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-6">
+            {error}
+          </div>
+        )}
+
+        {statusMessage && (
+          <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 mb-6">
+            {statusMessage}
+          </div>
+        )}
+
         {/* Submissions Table */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
@@ -257,46 +333,68 @@ export default function MonitorPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       ID
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {submissions.map((submission, index) => (
-                    <tr key={submission.id} className={index === 0 ? 'bg-blue-50' : 'hover:bg-gray-50'}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(submission.timestamp)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {submission.teamname}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {submission.filename}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {submission.fileUrl ? (
-                          <a 
-                            href={submission.fileUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 underline"
+                  {submissions.map((submission, index) => {
+                    const sourceKey = submission.source || 'unknown';
+                    const sourceInfo = SUBMIT_SOURCES[sourceKey] ?? SUBMIT_SOURCES['unknown'];
+                    const isResubmitting = !!resubmittingIds[submission.id];
+
+                    return (
+                      <tr key={submission.id} className={index === 0 ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatDate(submission.timestamp)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {submission.teamname}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {submission.filename}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {submission.fileUrl ? (
+                            <a
+                              href={submission.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              View File
+                            </a>
+                          ) : (
+                            <span className="text-gray-400">No URL</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${sourceInfo.badgeClasses}`}>
+                            {sourceInfo.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                          {submission.id ? `${submission.id.slice(0, 8)}...` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <button
+                            onClick={() => resubmitSubmission(submission)}
+                            disabled={isResubmitting || !submission.fileUrl}
+                            className={`px-3 py-1.5 rounded-lg font-medium transition ${
+                              isResubmitting
+                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                : submission.fileUrl
+                                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                            }`}
                           >
-                            View File
-                          </a>
-                        ) : (
-                          <span className="text-gray-400">No URL</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          SUBMIT_SOURCES[submission.source || 'unknown'].badgeClasses || 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {SUBMIT_SOURCES[submission.source || 'unknown'].name || 'Unknown'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                        {submission.id.slice(0, 8)}...
-                      </td>
-                    </tr>
-                  ))}
+                            {isResubmitting ? 'Resubmitting...' : 'Resubmit'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

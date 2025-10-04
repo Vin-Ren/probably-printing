@@ -8,6 +8,48 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 
+export async function queueSubmission({
+  filename,
+  teamname,
+  codeUrl,
+  submitSource = 'unknown',
+}: {
+  filename: string;
+  teamname: string;
+  codeUrl: string;
+  submitSource?: string;
+}) {
+  if (!redis.isOpen) {
+    await redis.connect();
+  }
+
+  const taskId = randomUUID();
+  const taskString = JSON.stringify({
+    id: taskId,
+    filename,
+    teamname,
+    code_url: codeUrl,
+  });
+
+  console.log("Pushing task to Redis queue:", taskString);
+  await redis.lPush(`task_queue`, taskString);
+
+  const monitorEvent = JSON.stringify({
+    type: 'submission',
+    timestamp: new Date().toISOString(),
+    id: taskId,
+    teamname,
+    filename,
+    fileUrl: codeUrl,
+    source: submitSource,
+  });
+
+  await redis.publish('submissions', monitorEvent);
+
+  return { taskId };
+}
+
+
 export async function DataExtractionErrorHandler<T>(func: () => Promise<T>, corsHeaders: HeadersInit): Promise<T | NextResponse> {
   try {
     return await func();
@@ -69,41 +111,19 @@ export async function SubmitHandler(file: File | null, teamname: string, corsHea
     return createErrorResponse("Cloudinary upload failed", 500, corsHeaders);
   }
 
-  // Push to Redis queue
-  if (!redis.isOpen) {
-    await redis.connect();
-  }
-
-  // # Data format: {"id": "Some_ID", "filename": "code.cpp", "teamname": "Team A", "code_url": "http://example.com/code.cpp"}
-  const taskId = randomUUID();
-  const taskString = JSON.stringify({
-    id: taskId,
+  const { taskId } = await queueSubmission({
     filename: file.name,
     teamname,
-    code_url: upload.secure_url,
+    codeUrl: upload.secure_url,
+    submitSource,
   });
-
-  // console.log(taskString);
-  console.log("Pushing task to Redis queue:", taskString);
-  await redis.lPush(`task_queue`, taskString);
-
-  // Publish to monitoring channel
-  const monitorEvent = JSON.stringify({
-    type: 'submission',
-    timestamp: new Date().toISOString(),
-    id: taskId,
-    teamname,
-    filename: file.name,
-    fileUrl: upload.secure_url,
-    source: submitSource,
-  });
-  await redis.publish('submissions', monitorEvent);
 
   return createSuccessResponse({
     success: true,
     teamname,
     file: file.name,
     cloudinary: upload,
+    taskId,
   }, corsHeaders);
 }
 

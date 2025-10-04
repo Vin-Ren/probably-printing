@@ -13,7 +13,8 @@ export function middleware(request: NextRequest) {
   const apiPath = pathname.substring(1);
   
   // Always allow api/submit
-  if (apiPath === 'api/submit') {
+  const DEFAULT_ENDPOINTS = ['api/submit', 'api/monitor', 'api/resubmit', 'api/config'];
+  if (DEFAULT_ENDPOINTS.includes(apiPath)) {
     return NextResponse.next();
   }
   

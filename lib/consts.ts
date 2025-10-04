@@ -46,6 +46,10 @@ export const SUBMIT_SOURCES: Record<string, SubmitSourceEntry> = { // For monito
   'unknown': {
     name: "Unknown",
     badgeClasses: "bg-gray-100 text-gray-800"
+  },
+  'monitor': { // For resubmissions via the monitoring page.
+    name: "Monitor",
+    badgeClasses: "bg-pink-100 text-pink-800"
   }
 };
 
