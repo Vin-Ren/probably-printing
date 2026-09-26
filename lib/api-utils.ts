@@ -17,7 +17,9 @@ export function createCORSHeaders(requestOrigin: string | null, extraHeaders: st
 
   if (allowedOrigin) {
     headers["Access-Control-Allow-Origin"] = allowedOrigin;
-    headers["Access-Control-Allow-Credentials"] = "true";
+    if (allowedOrigin !== "*") {
+      headers["Access-Control-Allow-Credentials"] = "true";
+    }
   }
 
   return headers;
@@ -62,10 +64,10 @@ export function validateSecretKey(
   corsHeaders: HeadersInit
 ): NextResponse | null {
   // Check secret key (bypass in development mode)
-  const isProduction = process.env.NODE_ENV === "production" && process.env.MODE === "production";
+  const isProduction = process.env.NODE_ENV === "production";
   const requiredSecretKey = process.env.API_SECRET_KEY;
   
-  if (isProduction && (!secretKey || secretKey !== requiredSecretKey)) {
+  if (isProduction && (!requiredSecretKey || !secretKey || secretKey !== requiredSecretKey)) {
     return new NextResponse(JSON.stringify({ error: "Invalid or missing secret key" }), {
       status: 401,
       headers: corsHeaders,

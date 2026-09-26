@@ -117,6 +117,9 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Use npm with the committed `package-lock.json` for installs and Vercel deployments.
+Set `API_SECRET_KEY` in Vercel; production API authentication is enabled by Next.js's `NODE_ENV=production`.
+
 First, run the development server:
 
 ```bash

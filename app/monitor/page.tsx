@@ -23,7 +23,7 @@ export default function MonitorPage() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  const isDevelopment = process.env.NODE_ENV === "development" || process.env.MODE === "development";
+  const isDevelopment = process.env.NODE_ENV === "development";
 
   useEffect(() => {
     // Initialize audio element

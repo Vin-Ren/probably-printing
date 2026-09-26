@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ENABLED_PLUGINS } from '@/lib/consts';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   
   // Only apply middleware to API routes

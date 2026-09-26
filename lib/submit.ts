@@ -72,8 +72,13 @@ export async function DataExtractionErrorHandler<T>(func: () => Promise<T>, cors
  * @returns A response object indicating success or failure of the operation.
  */
 export async function SubmitHandler(file: File | null, teamname: string, corsHeaders: HeadersInit, submitSource: string = 'unknown') {
-  if (!file) {
+  if (!(file instanceof File)) {
     return createErrorResponse("No file uploaded", 400, corsHeaders);
+  }
+
+  if (typeof teamname !== "string" || !teamname.trim() || teamname.length > 100 ||
+      !file.name || file.name.length > 255 || /[\\/\x00-\x1F]/.test(file.name)) {
+    return createErrorResponse("Invalid team name or filename", 400, corsHeaders);
   }
 
   // File size check

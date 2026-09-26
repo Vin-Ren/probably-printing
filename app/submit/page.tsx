@@ -8,7 +8,7 @@ export default function FileUploader() {
   const [file, setFile] = useState<File | null>(null);
   const [secretKey, setSecretKey] = useState("");
   
-  const isDevelopment = process.env.NODE_ENV === "development" || process.env.MODE === "development";
+  const isDevelopment = process.env.NODE_ENV === "development";
 
   async function handleSubmit() {
     if (!file) {

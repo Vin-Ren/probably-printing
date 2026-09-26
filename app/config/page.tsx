@@ -10,7 +10,7 @@ export default function ConfigPage() {
   const [htmlFormatterConfig, setHtmlFormatterConfig] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   
-  const isDevelopment = process.env.NODE_ENV === "development" || process.env.MODE === "development";
+  const isDevelopment = process.env.NODE_ENV === "development";
 
   useEffect(() => {
     async function fetchInitialConfig() {

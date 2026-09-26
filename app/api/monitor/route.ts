@@ -9,10 +9,10 @@ export async function GET(req: NextRequest) {
   const corsHeaders = createCORSHeaders(requestOrigin);
   
   // Validate secret key
-  const isProduction = process.env.NODE_ENV === "production" && process.env.MODE === "production";
+  const isProduction = process.env.NODE_ENV === "production";
   const requiredSecretKey = process.env.API_SECRET_KEY;
   
-  if (isProduction && (!secretKey || secretKey !== requiredSecretKey)) {
+  if (isProduction && (!requiredSecretKey || !secretKey || secretKey !== requiredSecretKey)) {
     return new Response(JSON.stringify({ error: "Invalid or missing secret key" }), {
       status: 401,
       headers: corsHeaders,
